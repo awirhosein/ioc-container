@@ -1,0 +1,24 @@
+{
+    "name": "awirhosein/ioc-container",
+    "authors": [
+        {
+            "name": "awirhosein",
+            "email": "awirhosein@yahoo.com"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Awirhosein\\IocContainer\\": "src/",
+            "Tests\\": "tests/"
+        }
+    },
+    "repositories": {
+        "packagist": {
+            "type": "composer",
+            "url": "https://mirror-composer.runflare.com"
+        }
+    }
+}
