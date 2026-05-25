@@ -2,7 +2,7 @@
 
 namespace Tests\Fixtures;
 
-class Something
+class Alpha
 {
     //
 }
