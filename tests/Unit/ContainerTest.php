@@ -3,64 +3,80 @@
 namespace Tests\Unit;
 
 use Awirhosein\Container\Container;
-use Awirhosein\Container\Exceptions\ContainerException;
+use Awirhosein\Container\Exceptions\BindingResolutionException;
+use Awirhosein\Container\Exceptions\CircularDependencyException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Fixtures\Alpha;
 use Tests\Fixtures\Beta;
+use Tests\Fixtures\Circular\CircleA;
 use Tests\Fixtures\Contracts\Omega;
 use Tests\Fixtures\Gamma;
 use Tests\TestCase;
 
 class ContainerTest extends TestCase
 {
-    #[Test]
-    public function resolve_plain_class()
-    {
-        $container = new Container();
+    private Container $container;
 
-        $resolve = $container->resolve(Alpha::class);
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->container = new Container();
+    }
+
+    #[Test]
+    public function resolves_plain_class()
+    {
+        $resolve = $this->container->resolve(Alpha::class);
 
         $this->assertInstanceOf(Alpha::class, $resolve);
     }
 
     #[Test]
-    public function resolve_single_dependency()
+    public function resolves_single_dependency()
     {
-        $container = new Container();
-
-        $resolve = $container->resolve(Beta::class);
+        $resolve = $this->container->resolve(Beta::class);
 
         $this->assertInstanceOf(Beta::class, $resolve);
     }
 
     #[Test]
-    public function resolve_recursive_dependencies()
+    public function resolves_recursive_dependencies()
     {
-        $container = new Container();
-
-        $resolve = $container->resolve(Gamma::class);
+        $resolve = $this->container->resolve(Gamma::class);
 
         $this->assertInstanceOf(Gamma::class, $resolve);
+        $this->assertInstanceOf(Beta::class, $resolve->beta);
+        $this->assertInstanceOf(Alpha::class, $resolve->beta->alpha);
     }
 
     #[Test]
-    public function binding_abstraction_to_concrete()
+    public function resolves_bound_abstraction()
     {
-        $container = new Container();
-        $container->bind(Omega::class, Alpha::class);
+        $this->container->bind(Omega::class, Alpha::class);
 
-        $resolve = $container->resolve(Omega::class);
+        $resolve = $this->container->resolve(Omega::class);
 
         $this->assertInstanceOf(Alpha::class, $resolve);
     }
 
     #[Test]
-    public function throws_exception_when_resolving_unbound_interface()
+    public function throws_exception_for_unbound_interface()
     {
-        $this->expectException(ContainerException::class);
+        $this->expectException(BindingResolutionException::class);
+        $this->expectExceptionMessage('Target [Omega] is not instantiable.');
 
-        $container = new Container();
-        
-        $container->resolve(Omega::class);
+        $this->container->resolve(Omega::class);
+    }
+
+    #[Test]
+    public function detects_circular_dependency()
+    {
+        $this->expectException(CircularDependencyException::class);
+        $this->expectExceptionMessage(
+            'Circular dependency detected while resolving [Tests\Fixtures\Circular\CircleA]'
+        );
+
+        $this->container->resolve(CircleA::class);
     }
 }

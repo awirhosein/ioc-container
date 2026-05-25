@@ -2,33 +2,53 @@
 
 namespace Awirhosein\Container;
 
-use Awirhosein\Container\Exceptions\ContainerException;
+use Awirhosein\Container\Exceptions\BindingResolutionException;
+use Awirhosein\Container\Exceptions\CircularDependencyException;
 use ReflectionClass;
 
 class Container
 {
     private array $bindings = [];
+    private array $resolving = [];
 
     public function bind(string $abstract, $concrete): void
     {
         $this->bindings[$abstract] = $concrete;
     }
 
-    public function resolve(string $abstract)
+    public function resolve(string $abstract): object
     {
-        if (isset($this->bindings[$abstract])) {
-            return $this->resolve($this->bindings[$abstract]);
+        // Prevent infinite recursion:
+        // A -> B -> C -> A
+        if (isset($this->resolving[$abstract])) {
+            throw new CircularDependencyException(
+                "Circular dependency detected while resolving [{$abstract}]"
+            );
         }
 
-        $reflection = new ReflectionClass($abstract);
+        $this->resolving[$abstract] = true;
 
-        if (! $reflection->isInstantiable()) {
-            throw new ContainerException("Traget [{$reflection->getShortName()}] is not instantiable.");
+        try {
+            if (isset($this->bindings[$abstract])) {
+                $abstract = $this->bindings[$abstract];
+            }
+
+            $reflection = new ReflectionClass($abstract);
+
+            if (! $reflection->isInstantiable()) {
+                throw new BindingResolutionException(
+                    "Target [{$reflection->getShortName()}] is not instantiable."
+                );
+            }
+
+            $dependencies = $this->dependencies($reflection);
+
+            return $reflection->newInstanceArgs($dependencies);
+        } finally {
+            // Always cleanup resolving state,
+            // even if dependency resolution fails.
+            unset($this->resolving[$abstract]);
         }
-
-        $dependencies = $this->dependencies($reflection);
-
-        return $reflection->newInstanceArgs($dependencies);
     }
 
     private function dependencies(ReflectionClass $reflection): array

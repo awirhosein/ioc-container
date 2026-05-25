@@ -2,7 +2,7 @@
 
 namespace Awirhosein\Container\Exceptions;
 
-class ContainerException extends \Exception
+class BindingResolutionException extends \Exception
 {
     //
 }
