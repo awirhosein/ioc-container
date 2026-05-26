@@ -79,4 +79,16 @@ class ContainerTest extends TestCase
 
         $this->container->resolve(CircleA::class);
     }
+
+    #[Test]
+    public function resolves_singleton_as_same_instance()
+    {
+        $this->container->singleton(Omega::class, Alpha::class);
+
+        $firstResolve = $this->container->resolve(Omega::class);
+        $secondResolve = $this->container->resolve(Omega::class);
+
+        $this->assertInstanceOf(Alpha::class, $firstResolve);
+        $this->assertSame($firstResolve, $secondResolve);
+    }
 }

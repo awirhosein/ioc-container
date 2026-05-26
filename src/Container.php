@@ -9,6 +9,8 @@ use ReflectionClass;
 class Container
 {
     private array $bindings = [];
+    private array $singletons = [];
+    private array $instances = [];
     private array $resolving = [];
 
     public function bind(string $abstract, $concrete): void
@@ -16,24 +18,25 @@ class Container
         $this->bindings[$abstract] = $concrete;
     }
 
+    public function singleton(string $abstract, $concrete): void
+    {
+        $this->singletons[$abstract] = $concrete;
+    }
+
     public function resolve(string $abstract): object
     {
-        // Prevent infinite recursion:
-        // A -> B -> C -> A
-        if (isset($this->resolving[$abstract])) {
-            throw new CircularDependencyException(
-                "Circular dependency detected while resolving [{$abstract}]"
-            );
+        if ($this->hasInstance($abstract)) {
+            return $this->instances[$abstract];
         }
+
+        $concrete = $this->concrete($abstract);
+
+        $this->preventInfiniteRecursion($abstract);
 
         $this->resolving[$abstract] = true;
 
         try {
-            if (isset($this->bindings[$abstract])) {
-                $abstract = $this->bindings[$abstract];
-            }
-
-            $reflection = new ReflectionClass($abstract);
+            $reflection = new ReflectionClass($concrete);
 
             if (! $reflection->isInstantiable()) {
                 throw new BindingResolutionException(
@@ -42,12 +45,60 @@ class Container
             }
 
             $dependencies = $this->dependencies($reflection);
+            $instance = $reflection->newInstanceArgs($dependencies);
 
-            return $reflection->newInstanceArgs($dependencies);
+            if ($this->isSingleton($abstract)) {
+                $this->instances[$abstract] = $instance;
+            }
+
+            return $instance;
         } finally {
             // Always cleanup resolving state,
             // even if dependency resolution fails.
             unset($this->resolving[$abstract]);
+        }
+    }
+
+    private function concrete(string $abstract): string
+    {
+        $concrete = $abstract;
+
+        if ($this->isSingleton($abstract)) {
+            $concrete = $this->singletons[$abstract];
+        }
+
+        if ($this->isBinding($abstract)) {
+            $concrete = $this->bindings[$abstract];
+        }
+
+        return $concrete;
+    }
+
+    private function isBinding(string $abstract): bool
+    {
+        return isset($this->bindings[$abstract]);
+    }
+
+    private function isSingleton(string $abstract): bool
+    {
+        return isset($this->singletons[$abstract]);
+    }
+
+    private function hasInstance(string $abstract): bool
+    {
+        return isset($this->instances[$abstract]);
+    }
+
+    /**
+     * Prevent infinite recursion:
+     * A -> B -> C -> A
+     */
+    private function preventInfiniteRecursion(string $abstract): void
+    {
+        if (isset($this->resolving[$abstract])) {
+            throw new CircularDependencyException(
+                "Circular dependency detected while resolving [{$abstract}]"
+            );
         }
     }
 
