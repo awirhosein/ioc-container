@@ -9,18 +9,20 @@ use ReflectionClass;
 class Container
 {
     private array $bindings = [];
-    private array $singletons = [];
     private array $instances = [];
     private array $resolving = [];
 
-    public function bind(string $abstract, $concrete): void
+    public function bind(string $abstract, $concrete, bool $shared = false): void
     {
-        $this->bindings[$abstract] = $concrete;
+        $this->bindings[$abstract] = [
+            'concrete' => $concrete,
+            'shared'   => $shared,
+        ];
     }
 
     public function singleton(string $abstract, $concrete): void
     {
-        $this->singletons[$abstract] = $concrete;
+        $this->bind($abstract, $concrete, true);
     }
 
     public function resolve(string $abstract): object
@@ -47,7 +49,7 @@ class Container
             $dependencies = $this->dependencies($reflection);
             $instance = $reflection->newInstanceArgs($dependencies);
 
-            if ($this->isSingleton($abstract)) {
+            if ($this->isShared($abstract)) {
                 $this->instances[$abstract] = $instance;
             }
 
@@ -61,27 +63,12 @@ class Container
 
     private function concrete(string $abstract): string
     {
-        $concrete = $abstract;
-
-        if ($this->isSingleton($abstract)) {
-            $concrete = $this->singletons[$abstract];
-        }
-
-        if ($this->isBinding($abstract)) {
-            $concrete = $this->bindings[$abstract];
-        }
-
-        return $concrete;
+        return $this->bindings[$abstract]['concrete'] ?? $abstract;
     }
 
-    private function isBinding(string $abstract): bool
+    private function isShared(string $abstract): bool
     {
-        return isset($this->bindings[$abstract]);
-    }
-
-    private function isSingleton(string $abstract): bool
-    {
-        return isset($this->singletons[$abstract]);
+        return $this->bindings[$abstract]['shared'] ?? false;
     }
 
     private function hasInstance(string $abstract): bool
