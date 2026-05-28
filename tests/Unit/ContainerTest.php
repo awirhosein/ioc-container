@@ -127,4 +127,16 @@ class ContainerTest extends TestCase
 
         $this->assertInstanceOf(Delta::class, $resolve->alpha);
     }
+
+    #[Test]
+    public function resolves_closure_binding()
+    {
+        $this->container->bind(Beta::class, function ($c) {
+            return new Beta($c->resolve(Alpha::class));
+        });
+
+        $resolve = $this->container->resolve(Beta::class);
+
+        $this->assertInstanceOf(Beta::class, $resolve);
+    }
 }

@@ -5,6 +5,7 @@ namespace Awirhosein\Container;
 use Awirhosein\Container\Exceptions\BindingResolutionException;
 use Awirhosein\Container\Exceptions\CircularDependencyException;
 use Awirhosein\Container\Exceptions\UnresolvableDependencyException;
+use Closure;
 use ReflectionClass;
 
 class Container
@@ -34,21 +35,12 @@ class Container
 
         $this->preventInfiniteRecursion($abstract);
 
-        $concrete = $this->concrete($abstract);
-
         $this->resolving[$abstract] = true;
 
         try {
-            $reflection = new ReflectionClass($concrete);
-
-            if (! $reflection->isInstantiable()) {
-                throw new BindingResolutionException(
-                    "Target [{$reflection->getShortName()}] is not instantiable."
-                );
-            }
-
-            $arguments = $this->arguments($reflection);
-            $instance = $reflection->newInstanceArgs($arguments);
+            $instance = $this->build(
+                $this->concrete($abstract)
+            );
 
             if ($this->isShared($abstract)) {
                 $this->instances[$abstract] = $instance;
@@ -80,9 +72,28 @@ class Container
         }
     }
 
-    private function concrete(string $abstract): string
+    private function concrete(string $abstract): Closure|string
     {
         return $this->bindings[$abstract]['concrete'] ?? $abstract;
+    }
+
+    private function build(Closure|string $concrete): object
+    {
+        if ($concrete instanceof Closure) {
+            return $concrete($this);
+        }
+
+        $reflection = new ReflectionClass($concrete);
+
+        if (! $reflection->isInstantiable()) {
+            throw new BindingResolutionException(
+                "Target [{$reflection->getShortName()}] is not instantiable."
+            );
+        }
+
+        $arguments = $this->arguments($reflection);
+
+        return $reflection->newInstanceArgs($arguments);
     }
 
     private function arguments(ReflectionClass $reflection): array
