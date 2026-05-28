@@ -123,6 +123,7 @@ class ContainerTest extends TestCase
     {
         $this->container->bind(Alpha::class, Delta::class);
 
+        // todo:
         $resolve = $this->container->resolve(WithBoundDependency::class);
 
         $this->assertInstanceOf(Delta::class, $resolve->alpha);
@@ -138,5 +139,16 @@ class ContainerTest extends TestCase
         $resolve = $this->container->resolve(Beta::class);
 
         $this->assertInstanceOf(Beta::class, $resolve);
+    }
+
+    #[Test]
+    public function resolves_instance()
+    {
+        $class = new WithPrimitiveParameter('John Doe');
+        $this->container->instance(WithPrimitiveParameter::class, $class);
+        
+        $resolve = $this->container->resolve(WithPrimitiveParameter::class);
+
+        $this->assertSame('John Doe', $resolve->name);
     }
 }

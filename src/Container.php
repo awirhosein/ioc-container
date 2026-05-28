@@ -27,6 +27,11 @@ class Container
         $this->bind($abstract, $concrete, true);
     }
 
+    public function instance(string $abstract, $concrete): void
+    {
+        $this->instances[$abstract] = $concrete;
+    }
+
     public function resolve(string $abstract): object
     {
         if ($this->hasInstance($abstract)) {
