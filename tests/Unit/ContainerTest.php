@@ -5,12 +5,17 @@ namespace Tests\Unit;
 use Awirhosein\Container\Container;
 use Awirhosein\Container\Exceptions\BindingResolutionException;
 use Awirhosein\Container\Exceptions\CircularDependencyException;
+use Awirhosein\Container\Exceptions\UnresolvableDependencyException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Fixtures\Alpha;
 use Tests\Fixtures\Beta;
 use Tests\Fixtures\Circular\CircleA;
 use Tests\Fixtures\Contracts\Omega;
+use Tests\Fixtures\Delta;
 use Tests\Fixtures\Gamma;
+use Tests\Fixtures\Primitive\WithDefaultValue;
+use Tests\Fixtures\Primitive\WithPrimitiveParameter;
+use Tests\Fixtures\WithBoundDependency;
 use Tests\TestCase;
 
 class ContainerTest extends TestCase
@@ -88,7 +93,38 @@ class ContainerTest extends TestCase
         $firstResolve = $this->container->resolve(Omega::class);
         $secondResolve = $this->container->resolve(Omega::class);
 
-        $this->assertInstanceOf(Alpha::class, $firstResolve);
         $this->assertSame($firstResolve, $secondResolve);
+        $this->assertInstanceOf(Alpha::class, $firstResolve);
+    }
+
+    #[Test]
+    public function throws_exception_for_primitive_parameter()
+    {
+        $this->expectException(UnresolvableDependencyException::class);
+        $this->expectExceptionMessage(
+            'Cannot resolve dependency [$name] in [Tests\Fixtures\Primitive\WithPrimitiveParameter]'
+        );
+
+        $this->container->resolve(WithPrimitiveParameter::class);
+    }
+
+    #[Test]
+    public function uses_default_value_for_parameter()
+    {
+        $resolve = $this->container->resolve(WithDefaultValue::class);
+
+        $this->assertInstanceOf(WithDefaultValue::class, $resolve);
+        $this->assertSame('default', $resolve->alpha);
+        $this->assertSame('default with primitive', $resolve->beta);
+    }
+
+    #[Test]
+    public function resolve_bound_dependency_before_using_default_value()
+    {
+        $this->container->bind(Alpha::class, Delta::class);
+
+        $resolve = $this->container->resolve(WithBoundDependency::class);
+
+        $this->assertInstanceOf(Delta::class, $resolve->alpha);
     }
 }

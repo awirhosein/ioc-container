@@ -14,11 +14,5 @@
             "Awirhosein\\Container\\": "src/",
             "Tests\\": "tests/"
         }
-    },
-    "repositories": {
-        "packagist": {
-            "type": "composer",
-            "url": "https://mirror-composer.runflare.com"
-        }
     }
 }

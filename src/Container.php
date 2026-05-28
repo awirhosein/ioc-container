@@ -4,6 +4,7 @@ namespace Awirhosein\Container;
 
 use Awirhosein\Container\Exceptions\BindingResolutionException;
 use Awirhosein\Container\Exceptions\CircularDependencyException;
+use Awirhosein\Container\Exceptions\UnresolvableDependencyException;
 use ReflectionClass;
 
 class Container
@@ -31,9 +32,9 @@ class Container
             return $this->instances[$abstract];
         }
 
-        $concrete = $this->concrete($abstract);
-
         $this->preventInfiniteRecursion($abstract);
+
+        $concrete = $this->concrete($abstract);
 
         $this->resolving[$abstract] = true;
 
@@ -46,8 +47,8 @@ class Container
                 );
             }
 
-            $dependencies = $this->dependencies($reflection);
-            $instance = $reflection->newInstanceArgs($dependencies);
+            $arguments = $this->arguments($reflection);
+            $instance = $reflection->newInstanceArgs($arguments);
 
             if ($this->isShared($abstract)) {
                 $this->instances[$abstract] = $instance;
@@ -59,16 +60,6 @@ class Container
             // even if dependency resolution fails.
             unset($this->resolving[$abstract]);
         }
-    }
-
-    private function concrete(string $abstract): string
-    {
-        return $this->bindings[$abstract]['concrete'] ?? $abstract;
-    }
-
-    private function isShared(string $abstract): bool
-    {
-        return $this->bindings[$abstract]['shared'] ?? false;
     }
 
     private function hasInstance(string $abstract): bool
@@ -89,20 +80,44 @@ class Container
         }
     }
 
-    private function dependencies(ReflectionClass $reflection): array
+    private function concrete(string $abstract): string
     {
-        $dependencies = [];
+        return $this->bindings[$abstract]['concrete'] ?? $abstract;
+    }
+
+    private function arguments(ReflectionClass $reflection): array
+    {
         $constructor = $reflection->getConstructor();
 
-        if (! is_null($constructor)) {
-            $parameters = $constructor->getParameters();
-
-            foreach ($parameters as $parameter) {
-                $dependency = $parameter->getType();
-                $dependencies[] = $this->resolve($dependency->getName());
-            }
+        if (is_null($constructor)) {
+            return [];
         }
 
-        return $dependencies;
+        $arguments = [];
+
+        foreach ($constructor->getParameters() as $parameter) {
+            $type = $parameter->getType();
+
+            if ($type && ! $type->isBuiltin()) {
+                $arguments[] = $this->resolve($type->getName());
+                continue;
+            }
+
+            if ($parameter->isDefaultValueAvailable()) {
+                $arguments[] = $parameter->getDefaultValue();
+                continue;
+            }
+
+            throw new UnresolvableDependencyException(
+                "Cannot resolve dependency [\${$parameter->getName()}] in [{$reflection->getName()}]"
+            );
+        }
+
+        return $arguments;
+    }
+
+    private function isShared(string $abstract): bool
+    {
+        return $this->bindings[$abstract]['shared'] ?? false;
     }
 }
