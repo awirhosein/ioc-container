@@ -27,9 +27,14 @@ class Container
         $this->bind($abstract, $concrete, true);
     }
 
-    public function instance(string $abstract, $concrete): void
+    public function instance(string $abstract, object $concrete): void
     {
         $this->instances[$abstract] = $concrete;
+    }
+
+    public function bound(string $abstract): bool
+    {
+        return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
     }
 
     public function resolve(string $abstract): object

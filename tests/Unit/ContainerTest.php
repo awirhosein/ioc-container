@@ -151,4 +151,17 @@ class ContainerTest extends TestCase
 
         $this->assertSame('John Doe', $resolve->name);
     }
+
+    #[Test]
+    public function check_if_abstract_is_bound()
+    {
+        $this->container->bind(Omega::class, Alpha::class);
+        $this->assertTrue($this->container->bound(Omega::class));
+
+        $this->container->singleton(Beta::class, Alpha::class);
+        $this->assertTrue($this->container->bound(Beta::class));
+
+        $this->container->instance(Alpha::class, new Alpha());
+        $this->assertTrue($this->container->bound(Alpha::class));
+    }
 }
