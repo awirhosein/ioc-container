@@ -32,27 +32,27 @@ class ContainerTest extends TestCase
     #[Test]
     public function resolves_plain_class()
     {
-        $resolve = $this->container->resolve(Alpha::class);
+        $resolved = $this->container->resolve(Alpha::class);
 
-        $this->assertInstanceOf(Alpha::class, $resolve);
+        $this->assertInstanceOf(Alpha::class, $resolved);
     }
 
     #[Test]
     public function resolves_single_dependency()
     {
-        $resolve = $this->container->resolve(Beta::class);
+        $resolved = $this->container->resolve(Beta::class);
 
-        $this->assertInstanceOf(Beta::class, $resolve);
+        $this->assertInstanceOf(Beta::class, $resolved);
     }
 
     #[Test]
     public function resolves_recursive_dependencies()
     {
-        $resolve = $this->container->resolve(Gamma::class);
+        $resolved = $this->container->resolve(Gamma::class);
 
-        $this->assertInstanceOf(Gamma::class, $resolve);
-        $this->assertInstanceOf(Beta::class, $resolve->beta);
-        $this->assertInstanceOf(Alpha::class, $resolve->beta->alpha);
+        $this->assertInstanceOf(Gamma::class, $resolved);
+        $this->assertInstanceOf(Beta::class, $resolved->beta);
+        $this->assertInstanceOf(Alpha::class, $resolved->beta->alpha);
     }
 
     #[Test]
@@ -60,29 +60,31 @@ class ContainerTest extends TestCase
     {
         $this->container->bind(Omega::class, Alpha::class);
 
-        $resolve = $this->container->resolve(Omega::class);
+        $resolved = $this->container->resolve(Omega::class);
 
-        $this->assertInstanceOf(Alpha::class, $resolve);
+        $this->assertInstanceOf(Alpha::class, $resolved);
     }
 
     #[Test]
-    public function throws_exception_for_unbound_interface()
+    public function resolves_closure_binding()
     {
-        $this->expectException(BindingResolutionException::class);
-        $this->expectExceptionMessage('Target [Omega] is not instantiable.');
+        $this->container->bind(Beta::class, function (Container $container) {
+            return new Beta($container->resolve(Alpha::class));
+        });
 
-        $this->container->resolve(Omega::class);
+        $resolved = $this->container->resolve(Beta::class);
+
+        $this->assertInstanceOf(Beta::class, $resolved);
     }
 
     #[Test]
-    public function detects_circular_dependency()
+    public function resolves_bound_dependency_before_using_default_value()
     {
-        $this->expectException(CircularDependencyException::class);
-        $this->expectExceptionMessage(
-            'Circular dependency detected while resolving [Tests\Fixtures\Circular\CircleA]'
-        );
+        $this->container->bind(Alpha::class, Delta::class);
 
-        $this->container->resolve(CircleA::class);
+        $resolved = $this->container->resolve(WithBoundDependency::class);
+
+        $this->assertInstanceOf(Delta::class, $resolved->alpha);
     }
 
     #[Test]
@@ -90,70 +92,54 @@ class ContainerTest extends TestCase
     {
         $this->container->singleton(Omega::class, Alpha::class);
 
-        $firstResolve = $this->container->resolve(Omega::class);
-        $secondResolve = $this->container->resolve(Omega::class);
+        $first = $this->container->resolve(Omega::class);
+        $second = $this->container->resolve(Omega::class);
 
-        $this->assertSame($firstResolve, $secondResolve);
-        $this->assertInstanceOf(Alpha::class, $firstResolve);
+        $this->assertSame($first, $second);
+        $this->assertInstanceOf(Alpha::class, $first);
     }
 
     #[Test]
-    public function throws_exception_for_primitive_parameter()
+    public function resolves_registered_instance()
     {
-        $this->expectException(UnresolvableDependencyException::class);
-        $this->expectExceptionMessage(
-            'Cannot resolve dependency [$name] in [Tests\Fixtures\Primitive\WithPrimitiveParameter]'
-        );
+        $instance = new WithPrimitiveParameter('John Doe');
+        $this->container->instance(WithPrimitiveParameter::class, $instance);
 
-        $this->container->resolve(WithPrimitiveParameter::class);
+        $resolved = $this->container->resolve(WithPrimitiveParameter::class);
+
+        $this->assertSame($instance, $resolved);
     }
 
     #[Test]
-    public function uses_default_value_for_parameter()
+    public function resolves_alias()
     {
-        $resolve = $this->container->resolve(WithDefaultValue::class);
+        $this->container->alias(Alpha::class, 'alpha');
 
-        $this->assertInstanceOf(WithDefaultValue::class, $resolve);
-        $this->assertSame('default', $resolve->alpha);
-        $this->assertSame('default with primitive', $resolve->beta);
+        $resolved = $this->container->resolve('alpha');
+
+        $this->assertInstanceOf(Alpha::class, $resolved);
     }
 
     #[Test]
-    public function resolve_bound_dependency_before_using_default_value()
+    public function uses_default_value_for_primitive_parameter()
     {
-        $this->container->bind(Alpha::class, Delta::class);
+        $resolved = $this->container->resolve(WithDefaultValue::class);
 
-        // todo:
-        $resolve = $this->container->resolve(WithBoundDependency::class);
-
-        $this->assertInstanceOf(Delta::class, $resolve->alpha);
+        $this->assertInstanceOf(WithDefaultValue::class, $resolved);
+        $this->assertSame('default', $resolved->alpha);
+        $this->assertSame('default with primitive', $resolved->beta);
     }
 
     #[Test]
-    public function resolves_closure_binding()
+    public function calls_method_with_injected_dependencies()
     {
-        $this->container->bind(Beta::class, function ($c) {
-            return new Beta($c->resolve(Alpha::class));
-        });
+        $result = $this->container->call([Delta::class, 'index']);
 
-        $resolve = $this->container->resolve(Beta::class);
-
-        $this->assertInstanceOf(Beta::class, $resolve);
+        $this->assertInstanceOf(Beta::class, $result);
     }
 
     #[Test]
-    public function resolves_instance()
-    {
-        $class = new WithPrimitiveParameter('John Doe');
-        $this->container->instance(WithPrimitiveParameter::class, $class);
-        
-        $resolve = $this->container->resolve(WithPrimitiveParameter::class);
-
-        $this->assertSame('John Doe', $resolve->name);
-    }
-
-    #[Test]
-    public function check_if_abstract_is_bound()
+    public function checks_if_abstract_is_bound()
     {
         $this->container->bind(Omega::class, Alpha::class);
         $this->assertTrue($this->container->bound(Omega::class));
@@ -163,16 +149,6 @@ class ContainerTest extends TestCase
 
         $this->container->instance(Alpha::class, new Alpha());
         $this->assertTrue($this->container->bound(Alpha::class));
-    }
-
-    #[Test]
-    public function resolves_aliases()
-    {
-        $this->container->alias(Alpha::class, 'alpha');
-
-        $resolve = $this->container->resolve('alpha');
-
-        $this->assertInstanceOf(Alpha::class, $resolve);
     }
 
     #[Test]
@@ -190,10 +166,33 @@ class ContainerTest extends TestCase
     }
 
     #[Test]
-    public function calls_method_with_injected_dependencies()
+    public function throws_exception_for_unbound_interface()
     {
-        $result = $this->container->call([Delta::class, 'index']);
+        $this->expectException(BindingResolutionException::class);
+        $this->expectExceptionMessage('Target [Omega] is not instantiable.');
 
-        $this->assertInstanceOf(Beta::class, $result);
+        $this->container->resolve(Omega::class);
+    }
+
+    #[Test]
+    public function throws_exception_for_unresolvable_primitive()
+    {
+        $this->expectException(UnresolvableDependencyException::class);
+        $this->expectExceptionMessage(
+            'Cannot resolve dependency [$name] in [Tests\Fixtures\Primitive\WithPrimitiveParameter]'
+        );
+
+        $this->container->resolve(WithPrimitiveParameter::class);
+    }
+
+    #[Test]
+    public function throws_exception_for_circular_dependency()
+    {
+        $this->expectException(CircularDependencyException::class);
+        $this->expectExceptionMessage(
+            'Circular dependency detected while resolving [Tests\Fixtures\Circular\CircleA]'
+        );
+
+        $this->container->resolve(CircleA::class);
     }
 }
