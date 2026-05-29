@@ -43,6 +43,14 @@ class Container
         return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
     }
 
+    public function flush(): void
+    {
+        $this->bindings = [];
+        $this->instances = [];
+        $this->resolving = [];
+        $this->aliases = [];
+    }
+
     public function resolve(string $abstract): object
     {
         if ($this->isAlias($abstract)) {

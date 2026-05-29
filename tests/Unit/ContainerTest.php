@@ -174,4 +174,18 @@ class ContainerTest extends TestCase
 
         $this->assertInstanceOf(Alpha::class, $resolve);
     }
+
+    #[Test]
+    public function flushes_the_container()
+    {
+        $this->container->bind(Omega::class, Alpha::class);
+        $this->container->singleton(Beta::class, Alpha::class);
+        $this->container->instance(Alpha::class, new Alpha());
+
+        $this->container->flush();
+
+        $this->assertFalse($this->container->bound(Omega::class));
+        $this->assertFalse($this->container->bound(Beta::class));
+        $this->assertFalse($this->container->bound(Alpha::class));
+    }
 }
