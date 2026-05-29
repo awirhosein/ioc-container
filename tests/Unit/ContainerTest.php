@@ -164,4 +164,14 @@ class ContainerTest extends TestCase
         $this->container->instance(Alpha::class, new Alpha());
         $this->assertTrue($this->container->bound(Alpha::class));
     }
+
+    #[Test]
+    public function resolves_aliases()
+    {
+        $this->container->alias(Alpha::class, 'alpha');
+
+        $resolve = $this->container->resolve('alpha');
+
+        $this->assertInstanceOf(Alpha::class, $resolve);
+    }
 }

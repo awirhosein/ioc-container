@@ -13,6 +13,7 @@ class Container
     private array $bindings = [];
     private array $instances = [];
     private array $resolving = [];
+    private array $aliases = [];
 
     public function bind(string $abstract, $concrete, bool $shared = false): void
     {
@@ -32,6 +33,11 @@ class Container
         $this->instances[$abstract] = $concrete;
     }
 
+    public function alias(string $abstract, string $name): void
+    {
+        $this->aliases[$name] = $abstract;
+    }
+
     public function bound(string $abstract): bool
     {
         return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
@@ -39,6 +45,10 @@ class Container
 
     public function resolve(string $abstract): object
     {
+        if ($this->isAlias($abstract)) {
+            $abstract = $this->aliases[$abstract];
+        }
+
         if ($this->hasInstance($abstract)) {
             return $this->instances[$abstract];
         }
@@ -62,6 +72,11 @@ class Container
             // even if dependency resolution fails.
             unset($this->resolving[$abstract]);
         }
+    }
+
+    private function isAlias(string $abstract): bool
+    {
+        return isset($this->aliases[$abstract]);
     }
 
     private function hasInstance(string $abstract): bool
