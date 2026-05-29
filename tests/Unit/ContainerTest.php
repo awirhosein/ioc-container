@@ -188,4 +188,12 @@ class ContainerTest extends TestCase
         $this->assertFalse($this->container->bound(Beta::class));
         $this->assertFalse($this->container->bound(Alpha::class));
     }
+
+    #[Test]
+    public function calls_method_with_injected_dependencies()
+    {
+        $result = $this->container->call([Delta::class, 'index']);
+
+        $this->assertInstanceOf(Beta::class, $result);
+    }
 }

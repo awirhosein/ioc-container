@@ -7,6 +7,7 @@ use Awirhosein\Container\Exceptions\CircularDependencyException;
 use Awirhosein\Container\Exceptions\UnresolvableDependencyException;
 use Closure;
 use ReflectionClass;
+use ReflectionMethod;
 
 class Container
 {
@@ -82,6 +83,15 @@ class Container
         }
     }
 
+    public function call($callable)
+    {
+        $object = $this->resolve($callable[0]);
+        $method = new ReflectionMethod($callable[0], $callable[1]);
+        $arguments = $this->resolveArguments($method, $method->class);
+
+        return $method->invokeArgs($object, $arguments);
+    }
+
     private function isAlias(string $abstract): bool
     {
         return isset($this->aliases[$abstract]);
@@ -124,12 +134,12 @@ class Container
             );
         }
 
-        $arguments = $this->arguments($reflection);
+        $arguments = $this->constructorArguments($reflection);
 
         return $reflection->newInstanceArgs($arguments);
     }
 
-    private function arguments(ReflectionClass $reflection): array
+    private function constructorArguments(ReflectionClass $reflection): array
     {
         $constructor = $reflection->getConstructor();
 
@@ -137,9 +147,14 @@ class Container
             return [];
         }
 
+        return $this->resolveArguments($constructor, $reflection->getName());
+    }
+
+    private function resolveArguments(ReflectionMethod $method, string $className): array
+    {
         $arguments = [];
 
-        foreach ($constructor->getParameters() as $parameter) {
+        foreach ($method->getParameters() as $parameter) {
             $type = $parameter->getType();
 
             if ($type && ! $type->isBuiltin()) {
@@ -153,7 +168,7 @@ class Container
             }
 
             throw new UnresolvableDependencyException(
-                "Cannot resolve dependency [\${$parameter->getName()}] in [{$reflection->getName()}]"
+                "Cannot resolve dependency [\${$parameter->getName()}] in [{$className}]"
             );
         }
 
